@@ -1,0 +1,20 @@
+{
+  "name": "tree",
+  "version": "1.0.0",
+  "description": "🌿",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/sequential.js"
+  },
+  "author": "🐞",
+  "license": "ISC",
+  "dependencies": {
+    "dagjs": "^0.1.4",
+    "stackjs": "^1.0.0",
+    "tree-sitter": "^0.20.0",
+    "web-tree-sitter": "^0.19.4"
+  },
+  "devDependencies": {
+    "tree-sitter-python": "^0.19.0"
+  }
+}

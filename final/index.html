@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang='en' dir='ltr'>
+<head>
+<meta charset='utf-8'>
+<title></title>
+</head>
+<body>
+<script src='https://cdn.jsdelivr.net/gh/AssemblyScript/binaryen.js/index.js'></script>
+<script type='module' src='./build.js'></script>
+<script src='./tree-sitter.js'></script>
+<script type="module">
+import createBinaryen from './build.js'
+
+const Parser = window.TreeSitter;
+
+let begin = async () => {
+await Parser.init();
+const parser = new Parser();
+const Python = await Parser.Language.load('./tree-sitter-python.wasm');
+parser.setLanguage(Python);
+let sourceCode = `
+print(1+1)
+`, tree = parser.parse(sourceCode), head = {}, topLevel;
+
+
+const expandNode = (node) => {
+let children = node.namedChildren, key = node.type, help = node.toString(), value = node.text;
+if (key=='module'){
+  topLevel = help;
+} else if (!head[key]){
+  head[key] = [value];
+} else {
+  head[key].push(value);
+}
+for (let i in children){
+  expandNode(children[i])
+}
+}
+
+expandNode(tree.rootNode)
+let s = topLevel.replace(/[":"]/g,"")
+let v = s.replace(/[")"]/g," )")
+let r = v.replace(/["("]/g,"( ")
+let array = r.split(" ")
+let syms = [];
+let simplify = (array, head) => {
+let ops = [];
+let keys = Object.keys(head);
+for (let i in array){
+let keyword = array[i];
+if (keys.includes(keyword)){
+  let content = head[keyword][0];
+  ops.push(content)
+  let obj = {};
+  obj[keyword] = content
+  syms.push(obj);
+  head[keyword].shift()
+}
+}
+return ops.reverse()
+}
+let op = simplify(array, head)
+let obj = new createBinaryen(op)
+let res = obj.results()
+
+console.log(res)
+
+let module = new binaryen.Module();
+let original = module.block(null, [
+module.f32.add(
+  module.f32.const(res.inputVals[0]),
+  module.f32.const(res.inputVals[0])
+)
+], binaryen.f32);
+
+module.addFunction("adder",binaryen.f32,binaryen.f32, [], original);
+module.addFunctionExport('adder', 'adder');
+module.optimize();
+console.log('optimized:\n\n' + module.emitText());
+let binary = module.emitBinary();
+let wasm = new WebAssembly.Instance(new WebAssembly.Module(binary), {})
+console.log('an addition: ' + wasm.exports.adder());
+}
+
+begin()
+</script>
+
+
+</body>
+</html>
